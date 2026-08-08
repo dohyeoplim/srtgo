@@ -65,6 +65,10 @@ DYNAPATH_PATHS = [
 ]
 
 
+def generate_device_id():
+    return "".join(random.choices("0123456789abcdef", k=16))
+
+
 class DynaPathMasterEngine:
     APP_ID = "com.korail.talk"
     AS_VALUE = "%5B38ff229cb34c7dda8e28220a2d750cce%5D"
@@ -638,7 +642,7 @@ class NetFunnelHelper:
 class Korail:
     """Main Korail API interface"""
 
-    def __init__(self, korail_id, korail_pw, auto_login=True, verbose=False):
+    def __init__(self, korail_id, korail_pw, auto_login=True, verbose=False, device_id=None):
         if HAS_CURL_CFFI:
             self._session = curl_cffi.Session(impersonate="chrome131_android")
         else:
@@ -648,13 +652,13 @@ class Korail:
         self._version = "250601002"
         self._key = "korail1234567890"
         self._sid_key = b"2485dd54d9deaa36"
-        self._device_id = "558a4f02041657ea"
+        self._device_id = device_id or generate_device_id()
         self._idx = None
         self._engine = DynaPathMasterEngine()
         self.korail_id = korail_id
         self.korail_pw = korail_pw
         self.verbose = verbose
-        self.logined = False
+        self.is_login = False
         self.membership_number = None
         self.name = None
         self.email = None
@@ -746,15 +750,22 @@ class Korail:
             print(
                 f"로그인 성공: {self.name} (멤버십번호: {self.membership_number}, 전화번호: {self.phone_number})"
             )
-            self.logined = True
+            self.is_login = True
             return True
-        self.logined = False
+        self.is_login = False
         return False
 
     def logout(self):
         r = self._session.get(API_ENDPOINTS["logout"])
         self._log(r.text)
-        self.logined = False
+        self.is_login = False
+
+    def clear(self):
+        # Macro detection keys on the DynaPath token's app-start timestamp, so a
+        # blocked session only recovers once the engine is re-seeded.
+        self._engine = DynaPathMasterEngine()
+        self._session.cookies.clear()
+        self.is_login = False
 
     def _result_check(self, j):
         if j.get("strResult") == "FAIL":

@@ -20,6 +20,7 @@ import re
 from .ktx import (
     Korail,
     KorailError,
+    MacroError,
     ReserveOption,
     TrainType,
     AdultPassenger,
@@ -27,6 +28,7 @@ from .ktx import (
     SeniorPassenger,
     Disability1To3Passenger,
     Disability4To6Passenger,
+    generate_device_id,
 )
 
 from .srt import (
@@ -417,7 +419,10 @@ def set_login(rail_type="SRT", debug=False):
         SRT(
             login_info["id"], login_info["pass"], verbose=debug
         ) if rail_type == "SRT" else Korail(
-            login_info["id"], login_info["pass"], verbose=debug
+            login_info["id"],
+            login_info["pass"],
+            verbose=debug,
+            device_id=get_device_id(rail_type),
         )
 
         keyring.set_password(rail_type, "id", login_info["id"])
@@ -440,8 +445,18 @@ def login(rail_type="SRT", debug=False):
     user_id = keyring.get_password(rail_type, "id")
     password = keyring.get_password(rail_type, "pass")
 
-    rail = SRT if rail_type == "SRT" else Korail
-    return rail(user_id, password, verbose=debug)
+    if rail_type == "SRT":
+        return SRT(user_id, password, verbose=debug)
+    return Korail(user_id, password, verbose=debug, device_id=get_device_id(rail_type))
+
+
+def get_device_id(rail_type):
+    # Korail's macro detection fingerprints the device id, so it has to be unique
+    # per install yet stable across runs.
+    if not (device_id := keyring.get_password(rail_type, "device_id")):
+        device_id = generate_device_id()
+        keyring.set_password(rail_type, "device_id", device_id)
+    return device_id
 
 
 def reserve(rail_type="SRT", debug=False):
@@ -749,7 +764,14 @@ def reserve(rail_type="SRT", debug=False):
 
         except KorailError as ex:
             msg = ex.msg
-            if "Need to Login" in msg:
+            if isinstance(ex, MacroError):
+                if debug:
+                    print(f"\nException: {ex}\nType: {type(ex)}\nArgs: {ex.args}\nMessage: {msg}")
+                rail.clear()
+                rail.login()
+                if not rail.is_login and not _handle_error(ex):
+                    return
+            elif "Need to Login" in msg:
                 rail = login(rail_type, debug=debug)
                 if not rail.is_login and not _handle_error(ex):
                     return
