@@ -28,6 +28,8 @@ from functools import reduce
 # Constants
 EMAIL_REGEX = re.compile(r"[^@]+@[^@]+\.[^@]+")
 PHONE_NUMBER_REGEX = re.compile(r"(\d{3})-(\d{3,4})-(\d{4})")
+# Membership numbers are 10 digits, so only 11-digit mobile numbers are safe to hyphenate.
+BARE_PHONE_NUMBER_REGEX = re.compile(r"01\d{9}")
 
 USER_AGENT = "Dalvik/2.1.0 (Linux; U; Android 13; SM-S928N Build/UP1A.231005.007)"
 
@@ -63,6 +65,13 @@ DYNAPATH_PATHS = [
     "/classes/com.korail.mobile.trn.prcFare.do",
     "/classes/com.korail.mobile.login.Login",
 ]
+
+
+def format_login_id(korail_id):
+    korail_id = korail_id.strip()
+    if BARE_PHONE_NUMBER_REGEX.fullmatch(korail_id):
+        return f"{korail_id[:3]}-{korail_id[3:7]}-{korail_id[7:]}"
+    return korail_id
 
 
 def generate_device_id():
@@ -713,6 +722,7 @@ class Korail:
             self.korail_id = korail_id
         if korail_pw:
             self.korail_pw = korail_pw
+        self.korail_id = format_login_id(self.korail_id)
 
         txt_input_flg = (
             "5"

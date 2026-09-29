@@ -1,13 +1,11 @@
 from typing import List, Tuple
 
 import inquirer
-import keyring
 import re
 
+from .config import load_settings, save_settings
 from .ui import checkbox_message, prompt
 
-
-RAIL_TYPE = "KTX"
 
 STATIONS = [
     "서울",
@@ -80,10 +78,8 @@ def set_station() -> bool:
         print("선택된 역이 없습니다.")
         return False
 
-    keyring.set_password(
-        RAIL_TYPE, "station", (selected_stations := ",".join(selected))
-    )
-    print(f"선택된 역: {selected_stations}")
+    save_settings(stations=selected)
+    print(f"선택된 역: {','.join(selected)}")
     return True
 
 
@@ -94,7 +90,7 @@ def edit_station() -> bool:
             inquirer.Text(
                 "stations",
                 message="역 수정 (예: 수서,대전,동대구)",
-                default=keyring.get_password(RAIL_TYPE, "station") or "",
+                default=",".join(load_settings().get("stations", [])),
             )
         ]
     )
@@ -114,20 +110,13 @@ def edit_station() -> bool:
             selected = DEFAULT_STATIONS
             break
 
-    keyring.set_password(
-        RAIL_TYPE, "station", (selected_stations := ",".join(selected))
-    )
-    print(f"선택된 역: {selected_stations}")
+    save_settings(stations=selected)
+    print(f"선택된 역: {','.join(selected)}")
     return True
 
 
 def get_station() -> Tuple[List[str], List[str]]:
-    station_key = keyring.get_password(RAIL_TYPE, "station")
-
-    if not station_key:
-        return STATIONS, DEFAULT_STATIONS
-
-    return STATIONS, station_key.split(",")
+    return STATIONS, load_settings().get("stations") or DEFAULT_STATIONS
 
 
 def set_options():
@@ -153,9 +142,8 @@ def set_options():
         return
 
     options = choices.get("options", [])
-    keyring.set_password("SRT", "options", ",".join(options))
+    save_settings(options=options)
 
 
 def get_options():
-    options = keyring.get_password("SRT", "options") or ""
-    return options.split(",") if options else []
+    return load_settings().get("options", [])

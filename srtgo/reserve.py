@@ -9,7 +9,6 @@ from random import gammavariate
 from termcolor import colored
 
 import inquirer
-import keyring
 import time
 
 from .account import login
@@ -25,7 +24,8 @@ from .ktx import (
     Disability1To3Passenger,
     Disability4To6Passenger,
 )
-from .settings import RAIL_TYPE, get_options, get_station
+from .config import load_settings, save_settings
+from .settings import get_options, get_station
 from .slack import notify
 from .ui import checkbox_message, list_message, prompt, status
 
@@ -51,7 +51,8 @@ SKIPPABLE_ERRORS = ("Sold out", "잔여석없음", "예약대기자한도수초�
 
 
 def reserve(debug=False):
-    rail = login(debug=debug)
+    if not (rail := login(debug=debug)):
+        return
 
     now = datetime.now() + timedelta(minutes=10)
     preferences = get_options()
@@ -65,8 +66,7 @@ def reserve(debug=False):
         _alert("출발역과 도착역이 같습니다")
         return
 
-    for key, value in info.items():
-        keyring.set_password(RAIL_TYPE, key, str(value))
+    save_settings(trip=info)
 
     today, this_time = now.strftime("%Y%m%d"), now.strftime("%H%M%S")
     if info["date"] == today and int(info["time"]) < int(this_time):
@@ -109,8 +109,10 @@ def _alert(msg):
 
 
 def _load_defaults(now):
+    trip = load_settings().get("trip", {})
+
     def saved(key, fallback):
-        return keyring.get_password(RAIL_TYPE, key) or fallback
+        return trip.get(key, fallback)
 
     defaults = {
         "departure": saved("departure", "서울"),
@@ -309,7 +311,7 @@ def _reserve_loop(rail, params, selected, passengers, seat_options, debug):
         try:
             if need_login:
                 rail = login(debug=debug)
-                if not rail.is_login:
+                if not (rail and rail.is_login):
                     _wait_and_resume("로그인에 실패했습니다")
                     continue
                 need_login = False
@@ -356,11 +358,12 @@ def _reserve_loop(rail, params, selected, passengers, seat_options, debug):
             need_login = True
 
 
+def _interval():
+    return gammavariate(RESERVE_INTERVAL_SHAPE, RESERVE_INTERVAL_SCALE) + RESERVE_INTERVAL_MIN
+
+
 def _sleep():
-    time.sleep(
-        gammavariate(RESERVE_INTERVAL_SHAPE, RESERVE_INTERVAL_SCALE)
-        + RESERVE_INTERVAL_MIN
-    )
+    time.sleep(_interval())
 
 
 def _error_message(ex):

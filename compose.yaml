@@ -1,0 +1,12 @@
+services:
+  srtgo:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8742}:${MCP_PORT:-8742}"
+    volumes:
+      - srtgo-data:/data
+
+volumes:
+  srtgo-data:

@@ -8,15 +8,35 @@
 
 - Automatic rail service reservation with retries and waiting list.
 - Card payment, cancellation, and Slack notifications.
+- MCP server for AI assistants.
 
 ### Usage
 
-#### Install & Run
+#### Setup
+
+```sh
+cp .env.example .env
+```
+
+- `.env` in the working directory or environment variables.
+- Required: `KORAIL_LOGIN_ID`, `KORAIL_PASSWORD`.
+- Optional: `CARD_*` for payment, `SLACK_WEBHOOK_URL` for notifications.
+
+#### CLI
 
 ```sh
 pip install git+https://github.com/dohyeoplim/srtgo.git
 srtgo
 ```
+
+#### MCP
+
+```sh
+docker compose up -d --build
+```
+
+- URL: `http://127.0.0.1:8742/mcp`
+- Header: `Authorization: Bearer <MCP_AUTH_TOKEN>`
 
 ### Disclaimer
 
