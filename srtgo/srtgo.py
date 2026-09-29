@@ -7,13 +7,12 @@ from datetime import datetime, timedelta
 from json.decoder import JSONDecodeError
 from random import gammavariate
 from termcolor import colored
-from typing import Awaitable, Callable, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
-import asyncio
 import click
 import inquirer
 import keyring
-import telegram
+import requests
 import time
 import re
 
@@ -101,7 +100,7 @@ def srtgo(debug=False):
         ("예매 시작", 1),
         ("예매 확인/결제/취소", 2),
         ("로그인 설정", 3),
-        ("텔레그램 설정", 4),
+        ("슬랙 설정", 4),
         ("카드 설정", 5),
         ("역 설정", 6),
         ("역 직접 수정", 7),
@@ -113,7 +112,7 @@ def srtgo(debug=False):
         1: lambda: reserve(debug),
         2: lambda: check_reservation(debug),
         3: lambda: set_login(debug),
-        4: set_telegram,
+        4: set_slack,
         5: set_card,
         6: set_station,
         7: edit_station,
@@ -236,53 +235,48 @@ def get_options():
     return options.split(",") if options else []
 
 
-def set_telegram() -> bool:
-    token = keyring.get_password("telegram", "token") or ""
-    chat_id = keyring.get_password("telegram", "chat_id") or ""
+SLACK_WEBHOOK_PREFIX = "https://hooks.slack.com/"
 
-    telegram_info = inquirer.prompt(
+
+def set_slack() -> bool:
+    slack_info = inquirer.prompt(
         [
             inquirer.Text(
-                "token",
-                message="텔레그램 token (Enter: 완료, Ctrl-C: 취소)",
-                default=token,
-            ),
-            inquirer.Text(
-                "chat_id",
-                message="텔레그램 chat_id (Enter: 완료, Ctrl-C: 취소)",
-                default=chat_id,
+                "webhook_url",
+                message="Slack Incoming Webhook URL (Enter: 완료, Ctrl-C: 취소)",
+                default=keyring.get_password("slack", "webhook_url") or "",
             ),
         ]
     )
-    if not telegram_info:
+    if not slack_info:
         return False
 
-    token, chat_id = telegram_info["token"], telegram_info["chat_id"]
+    webhook_url = slack_info["webhook_url"].strip()
+    if not webhook_url.startswith(SLACK_WEBHOOK_PREFIX):
+        print(f"Webhook URL은 {SLACK_WEBHOOK_PREFIX}로 시작해야 합니다")
+        return False
 
     try:
-        keyring.set_password("telegram", "ok", "1")
-        keyring.set_password("telegram", "token", token)
-        keyring.set_password("telegram", "chat_id", chat_id)
-        tgprintf = get_telegram()
-        asyncio.run(tgprintf("[SRTGO] 텔레그램 설정 완료"))
-        return True
-    except Exception as err:
+        send_slack("[SRTGO] 슬랙 설정 완료", webhook_url)
+    except requests.RequestException as err:
         print(err)
-        keyring.delete_password("telegram", "ok")
         return False
 
+    keyring.set_password("slack", "webhook_url", webhook_url)
+    return True
 
-def get_telegram() -> Optional[Callable[[str], Awaitable[None]]]:
-    token = keyring.get_password("telegram", "token")
-    chat_id = keyring.get_password("telegram", "chat_id")
 
-    async def tgprintf(text):
-        if token and chat_id:
-            bot = telegram.Bot(token=token)
-            async with bot:
-                await bot.send_message(chat_id=chat_id, text=text)
+def escape_slack(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-    return tgprintf
+
+def send_slack(text: str, webhook_url: Optional[str] = None) -> None:
+    if not (webhook_url := webhook_url or keyring.get_password("slack", "webhook_url")):
+        return
+
+    # Train times like "08:00~11:03 수서~부산" would otherwise render as strikethrough
+    payload = {"text": escape_slack(text), "mrkdwn": False}
+    requests.post(webhook_url, json=payload, timeout=10).raise_for_status()
 
 
 def set_card() -> None:
@@ -714,9 +708,9 @@ def _error_message(ex):
 
 def _notify(msg):
     try:
-        asyncio.run(get_telegram()(msg))
+        send_slack(msg)
     except Exception as ex:
-        print(f"\n텔레그램 전송 실패: {ex}")
+        print(f"\n슬랙 전송 실패: {ex}")
 
 
 def _wait_and_resume(msg):
@@ -766,7 +760,7 @@ def check_reservation(debug=False):
 
         choices = [
             (str(reservation), i) for i, reservation in enumerate(all_reservations)
-        ] + [("텔레그램으로 예매 정보 전송", -2), ("돌아가기", -1)]
+        ] + [("슬랙으로 예매 정보 전송", -2), ("돌아가기", -1)]
 
         choice = inquirer.list_input(message="예약 취소 (Enter: 결정)", choices=choices)
 
@@ -774,7 +768,7 @@ def check_reservation(debug=False):
         if choice in (None, -1):
             return
 
-        # Send reservation info to telegram
+        # Send reservation info to Slack
         if choice == -2:
             out = []
             if all_reservations:
@@ -783,8 +777,7 @@ def check_reservation(debug=False):
                     out.append(f"🚅{reservation}")
 
             if out:
-                tgprintf = get_telegram()
-                asyncio.run(tgprintf("\n".join(out)))
+                _notify("\n".join(out))
             return
 
         # If choice is an unpaid reservation, ask to pay or cancel
