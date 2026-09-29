@@ -4,7 +4,7 @@ import inquirer
 import keyring
 import re
 
-from .ui import prompt
+from .ui import checkbox_message, prompt
 
 
 RAIL_TYPE = "KTX"
@@ -67,7 +67,7 @@ def set_station() -> bool:
             [
                 inquirer.Checkbox(
                     "stations",
-                    message="역 선택 (↕:이동, Space: 선택, Enter: 완료, Ctrl-A: 전체선택, Ctrl-R: 선택해제, Ctrl-C: 취소)",
+                    message=checkbox_message("역 선택"),
                     choices=stations,
                     default=default_station_key,
                 )
@@ -136,7 +136,7 @@ def set_options():
         [
             inquirer.Checkbox(
                 "options",
-                message="예매 옵션 선택 (Space: 선택, Enter: 완료, Ctrl-A: 전체선택, Ctrl-R: 선택해제, Ctrl-C: 취소)",
+                message=checkbox_message("예매 옵션"),
                 choices=[
                     ("어린이", "child"),
                     ("경로우대", "senior"),

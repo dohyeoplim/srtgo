@@ -4,7 +4,7 @@ from termcolor import colored
 from .account import login
 from .card import pay_card
 from .slack import notify
-from .ui import confirm, list_input
+from .ui import confirm, list_input, list_message
 
 
 def check_reservation(debug=False):
@@ -33,7 +33,7 @@ def check_reservation(debug=False):
             (str(reservation), i) for i, reservation in enumerate(all_reservations)
         ] + [("슬랙으로 예매 정보 전송", -2), ("돌아가기", -1)]
 
-        choice = list_input(message="예약 취소 (Enter: 결정)", choices=choices)
+        choice = list_input(message=list_message("예매 내역"), choices=choices)
 
         if choice in (None, -1):
             return
@@ -54,7 +54,7 @@ def check_reservation(debug=False):
             and not all_reservations[choice].is_waiting
         ):
             answer = list_input(
-                message=f"결재 대기 승차권: {all_reservations[choice]}",
+                message=f"결제 대기 승차권: {all_reservations[choice]}",
                 choices=[("결제하기", 1), ("취소하기", 2)],
             )
 

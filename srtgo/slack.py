@@ -15,7 +15,7 @@ def set_slack() -> bool:
         [
             inquirer.Text(
                 "webhook_url",
-                message="Slack Incoming Webhook URL (Enter: 완료, Ctrl-C: 취소)",
+                message="Slack Incoming Webhook URL",
                 default=keyring.get_password("slack", "webhook_url") or "",
             ),
         ]

@@ -6,7 +6,7 @@ from .reservations import check_reservation
 from .reserve import reserve
 from .settings import edit_station, set_options, set_station
 from .slack import set_slack
-from .ui import list_input
+from .ui import list_input, list_message
 
 
 @click.command()
@@ -36,9 +36,7 @@ def srtgo(debug=False):
     }
 
     while True:
-        choice = list_input(
-            message="메뉴 선택 (↕:이동, Enter: 선택)", choices=MENU_CHOICES
-        )
+        choice = list_input(message=list_message("메뉴 선택"), choices=MENU_CHOICES)
 
         if choice == -1:
             break

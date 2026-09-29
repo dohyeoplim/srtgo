@@ -16,22 +16,22 @@ def set_card() -> None:
         [
             inquirer.Password(
                 "number",
-                message="신용카드 번호 (하이픈 제외(-), Enter: 완료, Ctrl-C: 취소)",
+                message="신용카드 번호 (하이픈 제외)",
                 default=card_info["number"],
             ),
             inquirer.Password(
                 "password",
-                message="카드 비밀번호 앞 2자리 (Enter: 완료, Ctrl-C: 취소)",
+                message="카드 비밀번호 앞 2자리",
                 default=card_info["password"],
             ),
             inquirer.Password(
                 "birthday",
-                message="생년월일 (YYMMDD) / 사업자등록번호 (Enter: 완료, Ctrl-C: 취소)",
+                message="생년월일 (YYMMDD) 또는 사업자등록번호",
                 default=card_info["birthday"],
             ),
             inquirer.Password(
                 "expire",
-                message="카드 유효기간 (YYMM, Enter: 완료, Ctrl-C: 취소)",
+                message="카드 유효기간 (YYMM)",
                 default=card_info["expire"],
             ),
         ]

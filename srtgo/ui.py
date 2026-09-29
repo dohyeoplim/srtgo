@@ -8,6 +8,17 @@ ELLIPSIS = "..."
 HEADER_MARK_WIDTH = len("[?] ")
 VALUE_SEPARATOR = ": "
 
+LIST_KEYS = "Enter: 선택, Ctrl-C: 취소"
+CHECKBOX_KEYS = "Space: 선택, Ctrl-A: 전체, Ctrl-R: 해제, Enter: 완료"
+
+
+def list_message(title):
+    return f"{title} ({LIST_KEYS})"
+
+
+def checkbox_message(title):
+    return f"{title} ({CHECKBOX_KEYS})"
+
 
 def fit_end(term, text, width):
     if term.length(text) <= width:

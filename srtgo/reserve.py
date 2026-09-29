@@ -27,7 +27,7 @@ from .ktx import (
 )
 from .settings import RAIL_TYPE, get_options, get_station
 from .slack import notify
-from .ui import prompt
+from .ui import checkbox_message, list_message, prompt
 
 
 RESERVE_INTERVAL_SHAPE = 4
@@ -142,31 +142,31 @@ def _ask_trip(defaults, now, preferences):
     questions = [
         inquirer.List(
             "departure",
-            message="출발역 선택 (↕:이동, Enter: 선택, Ctrl-C: 취소)",
+            message=list_message("출발역"),
             choices=station_key,
             default=defaults["departure"],
         ),
         inquirer.List(
             "arrival",
-            message="도착역 선택 (↕:이동, Enter: 선택, Ctrl-C: 취소)",
+            message=list_message("도착역"),
             choices=station_key,
             default=defaults["arrival"],
         ),
         inquirer.List(
             "date",
-            message="출발 날짜 선택 (↕:이동, Enter: 선택, Ctrl-C: 취소)",
+            message=list_message("출발 날짜"),
             choices=_date_choices(now),
             default=defaults["date"],
         ),
         inquirer.List(
             "time",
-            message="출발 시각 선택 (↕:이동, Enter: 선택, Ctrl-C: 취소)",
+            message=list_message("출발 시각"),
             choices=time_choices,
             default=defaults["time"],
         ),
         inquirer.List(
             "adult",
-            message="성인 승객수 (↕:이동, Enter: 선택, Ctrl-C: 취소)",
+            message=list_message("성인 승객수"),
             choices=range(10),
             default=defaults["adult"],
         ),
@@ -175,7 +175,7 @@ def _ask_trip(defaults, now, preferences):
     questions += [
         inquirer.List(
             key,
-            message=f"{label} 승객수 (↕:이동, Enter: 선택, Ctrl-C: 취소)",
+            message=list_message(f"{label} 승객수"),
             choices=range(10),
             default=defaults[key],
         )
@@ -220,7 +220,7 @@ def _ask_trains(trains):
         [
             inquirer.Checkbox(
                 "trains",
-                message="예약할 열차 선택 (↕:이동, Space: 선택, Enter: 완료, Ctrl-A: 전체선택, Ctrl-R: 선택해제, Ctrl-C: 취소)",
+                message=checkbox_message("예약할 열차"),
                 choices=[(_train_label(train), i) for i, train in enumerate(trains)],
                 default=None,
             ),
@@ -234,7 +234,7 @@ def _ask_seat_options():
         [
             inquirer.List(
                 "type",
-                message="선택 유형",
+                message=list_message("좌석 유형"),
                 choices=[
                     ("일반실 우선", ReserveOption.GENERAL_FIRST),
                     ("일반실만", ReserveOption.GENERAL_ONLY),
