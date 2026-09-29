@@ -22,7 +22,6 @@ dependencies = [
     "keyring",
     "PyCryptodome",
     "prompt_toolkit>=3",
-    "python-telegram-bot",
     "termcolor"
 ]
 dynamic = ["version"]
