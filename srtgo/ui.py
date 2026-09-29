@@ -20,6 +20,19 @@ def checkbox_message(title):
     return f"{title} ({CHECKBOX_KEYS})"
 
 
+def strip_keys(message):
+    for keys in (LIST_KEYS, CHECKBOX_KEYS):
+        message = message.removesuffix(f" ({keys})")
+    return message
+
+
+def answer_label(render):
+    choices = render.question.choices
+    if hasattr(render, "selection"):
+        return ", ".join(str(choices[i]) for i in sorted(render.selection)) or "선택 없음"
+    return str(choices[render.current])
+
+
 def fit_end(term, text, width):
     if term.length(text) <= width:
         return text
@@ -65,6 +78,26 @@ class FittedRender(ConsoleRender):
             value=value,
             lf=not render.title_inline,
             tq=theme,
+        )
+
+    def _go_to_end(self, render):
+        if render.title_inline:
+            return super()._go_to_end(render)
+
+        term = self.terminal
+        print(term.move_up * self._position + "\r" + term.clear_eos, end="")
+        self._position = 0
+
+        room = self.width - 1 - HEADER_MARK_WIDTH - len(VALUE_SEPARATOR)
+        title = fit_end(term, strip_keys(render.get_header()), room // 2)
+        answer = fit_end(term, answer_label(render), room - term.length(title))
+        self.print_str(
+            "{tq.brackets_color}[{tq.mark_color}?{tq.brackets_color}]{t.normal} "
+            "{msg}" + VALUE_SEPARATOR + "{color}{value}{t.normal}",
+            msg=title,
+            value=answer,
+            color=self._theme.List.selection_color,
+            tq=self._theme.Question,
         )
 
     def _print_options(self, render):
