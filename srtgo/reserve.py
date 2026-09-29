@@ -211,8 +211,35 @@ def _search_params(info, total_count, preferences):
     }
 
 
+def _hhmm(value):
+    return f"{value[:2]}:{value[2:4]}"
+
+
+def _duration_minutes(dep_time, arr_time):
+    minutes = int(arr_time[:2]) * 60 + int(arr_time[2:4]) - int(dep_time[:2]) * 60 - int(dep_time[2:4])
+    return minutes % (24 * 60)
+
+
+def _seat_status(available):
+    return colored("가능", "green") if available else "매진"
+
+
 def _train_label(train):
-    return repr(train).replace("가능", colored("가능", "green"))
+    label = (
+        f"{train.train_type_name[:3]} {train.train_no:>4}  "
+        f"{_hhmm(train.dep_time)}~{_hhmm(train.arr_time)} "
+        f"({_duration_minutes(train.dep_time, train.arr_time):>3}분)"
+    )
+    if not train.reserve_possible_name:
+        return label
+
+    seats = [
+        f"특실 {_seat_status(train.has_special_seat())}",
+        f"일반 {_seat_status(train.has_general_seat())}",
+    ]
+    if isinstance(train.wait_reserve_flag, int) and train.wait_reserve_flag >= 0:
+        seats.append(f"대기 {_seat_status(train.has_general_waiting_list())}")
+    return f"{label}  {'  '.join(seats)}"
 
 
 def _ask_trains(trains):
