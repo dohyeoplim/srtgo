@@ -10,6 +10,8 @@
 - Card payment, cancellation, and Slack notifications.
 - MCP server for AI assistants.
 
+![screenshot](https://github.com/user-attachments/assets/9f7f7ee0-a879-4602-a58b-81bcad0723ee)
+
 ### Usage
 
 #### Setup
