@@ -7,12 +7,11 @@ from datetime import datetime, timedelta
 from json.decoder import JSONDecodeError
 from random import gammavariate
 from termcolor import colored
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 import click
 import inquirer
 import keyring
-import requests
 import time
 import re
 
@@ -29,6 +28,7 @@ from .ktx import (
     Disability4To6Passenger,
     generate_device_id,
 )
+from .slack import notify, set_slack
 
 STATIONS = [
     "서울",
@@ -233,50 +233,6 @@ def set_options():
 def get_options():
     options = keyring.get_password("SRT", "options") or ""
     return options.split(",") if options else []
-
-
-SLACK_WEBHOOK_PREFIX = "https://hooks.slack.com/"
-
-
-def set_slack() -> bool:
-    slack_info = inquirer.prompt(
-        [
-            inquirer.Text(
-                "webhook_url",
-                message="Slack Incoming Webhook URL (Enter: 완료, Ctrl-C: 취소)",
-                default=keyring.get_password("slack", "webhook_url") or "",
-            ),
-        ]
-    )
-    if not slack_info:
-        return False
-
-    webhook_url = slack_info["webhook_url"].strip()
-    if not webhook_url.startswith(SLACK_WEBHOOK_PREFIX):
-        print(f"Webhook URL은 {SLACK_WEBHOOK_PREFIX}로 시작해야 합니다")
-        return False
-
-    try:
-        send_slack("[SRTGO] 슬랙 설정 완료", webhook_url)
-    except requests.RequestException as err:
-        print(err)
-        return False
-
-    keyring.set_password("slack", "webhook_url", webhook_url)
-    return True
-
-
-def escape_slack(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def send_slack(text: str, webhook_url: Optional[str] = None) -> None:
-    if not (webhook_url := webhook_url or keyring.get_password("slack", "webhook_url")):
-        return
-
-    # Train times like "08:00~11:03 수서~부산" would otherwise render as strikethrough
-    payload = {"text": escape_slack(text), "mrkdwn": False}
-    requests.post(webhook_url, json=payload, timeout=10).raise_for_status()
 
 
 def set_card() -> None:
@@ -628,7 +584,7 @@ def reserve(debug=False):
             print(f"결제 실패: {ex}")
             msg += f"\n결제 실패: {ex}"
 
-        _notify(msg)
+        notify(msg)
 
     # Reservation loop
     i_try = 0
@@ -706,17 +662,10 @@ def _error_message(ex):
     return f"Exception: {ex}, Type: {type(ex)}, Message: {getattr(ex, 'msg', 'No message attribute')}"
 
 
-def _notify(msg):
-    try:
-        send_slack(msg)
-    except Exception as ex:
-        print(f"\n슬랙 전송 실패: {ex}")
-
-
 def _wait_and_resume(msg):
     msg = f"{msg}\n{RESUME_DELAY // 60}분 후 자동으로 예매를 재개합니다"
     print(f"\n{msg}")
-    _notify(msg)
+    notify(msg)
 
     resume_at = time.time() + RESUME_DELAY
     while (remaining := int(resume_at - time.time())) > 0:
@@ -777,7 +726,7 @@ def check_reservation(debug=False):
                     out.append(f"🚅{reservation}")
 
             if out:
-                _notify("\n".join(out))
+                notify("\n".join(out))
             return
 
         # If choice is an unpaid reservation, ask to pay or cancel
