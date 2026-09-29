@@ -1,4 +1,5 @@
 import click
+from termcolor import colored
 
 from .account import set_login
 from .card import set_card
@@ -38,12 +39,17 @@ def srtgo(debug=False):
     while True:
         choice = list_input(message=list_message("메뉴 선택"), choices=MENU_CHOICES)
 
-        if choice == -1:
+        if choice in (-1, None):
             break
 
         action = ACTIONS.get(choice)
-        if action:
+        if not action:
+            continue
+
+        try:
             action()
+        except KeyboardInterrupt:
+            print(colored("\n작업을 중단했습니다", "green", "on_red") + "\n")
 
 
 if __name__ == "__main__":

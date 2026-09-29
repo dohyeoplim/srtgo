@@ -84,13 +84,21 @@ def _console():
     return FittedRender()
 
 
+def _cancellable(ask):
+    try:
+        return ask()
+    except KeyboardInterrupt:
+        print()
+        return None
+
+
 def prompt(questions):
-    return inquirer.prompt(questions, render=_console())
+    return _cancellable(lambda: inquirer.prompt(questions, render=_console(), raise_keyboard_interrupt=True))
 
 
 def list_input(message, **kwargs):
-    return inquirer.list_input(message, render=_console(), **kwargs)
+    return _cancellable(lambda: inquirer.list_input(message, render=_console(), **kwargs))
 
 
 def confirm(message, **kwargs):
-    return inquirer.confirm(message, render=_console(), **kwargs)
+    return _cancellable(lambda: inquirer.confirm(message, render=_console(), **kwargs))
