@@ -79,6 +79,10 @@ class FittedRender(ConsoleRender):
             )
 
 
+def status(text):
+    print(f"\r{text}\x1b[K", end="", flush=True)
+
+
 @cache
 def _console():
     return FittedRender()

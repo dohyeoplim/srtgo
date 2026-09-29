@@ -27,7 +27,7 @@ from .ktx import (
 )
 from .settings import RAIL_TYPE, get_options, get_station
 from .slack import notify
-from .ui import checkbox_message, list_message, prompt
+from .ui import checkbox_message, list_message, prompt, status
 
 
 RESERVE_INTERVAL_SHAPE = 4
@@ -298,11 +298,7 @@ def _complete_reservation(rail, train, passengers, seat_options):
 def _print_progress(i_try, start_time):
     hours, remainder = divmod(int(time.time() - start_time), 3600)
     minutes, seconds = divmod(remainder, 60)
-    print(
-        f"\r예매 대기 중... {WAITING_BAR[i_try & 3]} {i_try:4d} ({hours:02d}:{minutes:02d}:{seconds:02d}) ",
-        end="",
-        flush=True,
-    )
+    status(f"예매 대기 중... {WAITING_BAR[i_try & 3]} {i_try:4d} ({hours:02d}:{minutes:02d}:{seconds:02d})")
 
 
 def _reserve_loop(rail, params, selected, passengers, seat_options, debug):
@@ -379,7 +375,7 @@ def _wait_and_resume(msg):
     resume_at = time.time() + RESUME_DELAY
     while (remaining := int(resume_at - time.time())) > 0:
         minutes, seconds = divmod(remaining, 60)
-        print(f"\r재개 대기 중... {minutes:02d}:{seconds:02d} (Ctrl-C: 중단) ", end="", flush=True)
+        status(f"재개 대기 중... {minutes:02d}:{seconds:02d} (Ctrl-C: 중단)")
         time.sleep(1)
     print()
 

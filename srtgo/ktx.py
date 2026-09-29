@@ -573,7 +573,7 @@ class NetFunnelHelper:
             self._last_fetch_time = current_time
 
             while status == self.WAIT_STATUS_FAIL:
-                print(f"\r현재 {nwait}명 대기중...", end="", flush=True)
+                print(f"\r현재 {nwait}명 대기중...\x1b[K", end="", flush=True)
                 time.sleep(1)
                 status, self._cached_key, nwait = self._check()
 
