@@ -35,7 +35,7 @@ srtgo
 docker compose up -d --build
 ```
 
-- URL: `http://127.0.0.1:8742/mcp`
+- URL: `http://127.0.0.1:8742/mcp` (Streamable HTTP)
 - Header: `Authorization: Bearer <MCP_AUTH_TOKEN>`
 
 ### Disclaimer
