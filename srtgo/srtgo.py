@@ -89,6 +89,8 @@ RESERVE_INTERVAL_MIN = 0.25
 
 WAITING_BAR = ["|", "/", "-", "\\"]
 
+RESUME_DELAY = 600
+
 ChoiceType = Union[int, None]
 
 
@@ -621,20 +623,32 @@ def reserve(debug=False):
 
         print(colored(f"\n\n🎫 🎉 예매 성공!!! 🎉 🎫\n{msg}\n", "red", "on_green"))
 
-        if options["pay"] and not reserve.is_waiting and pay_card(rail, reserve):
-            print(
-                colored("\n\n💳 ✨ 결제 성공!!! ✨ 💳\n\n", "green", "on_red"), end=""
-            )
-            msg += "\n결제 완료"
+        # The seat is already held, so later failures must not re-enter the reservation loop
+        try:
+            if options["pay"] and not reserve.is_waiting and pay_card(rail, reserve):
+                print(
+                    colored("\n\n💳 ✨ 결제 성공!!! ✨ 💳\n\n", "green", "on_red"), end=""
+                )
+                msg += "\n결제 완료"
+        except Exception as ex:
+            print(f"결제 실패: {ex}")
+            msg += f"\n결제 실패: {ex}"
 
-        tgprintf = get_telegram()
-        asyncio.run(tgprintf(msg))
+        _notify(msg)
 
     # Reservation loop
     i_try = 0
     start_time = time.time()
+    need_login = False
     while True:
         try:
+            if need_login:
+                rail = login(debug=debug)
+                if not rail.is_login:
+                    _wait_and_resume("로그인에 실패했습니다")
+                    continue
+                need_login = False
+
             i_try += 1
             elapsed_time = time.time() - start_time
             hours, remainder = divmod(int(elapsed_time), 3600)
@@ -657,20 +671,15 @@ def reserve(debug=False):
             if isinstance(ex, MacroError):
                 if debug:
                     print(f"\nException: {ex}\nType: {type(ex)}\nArgs: {ex.args}\nMessage: {msg}")
-                rail.clear()
-                rail.login()
-                if not rail.is_login and not _handle_error(ex):
-                    return
+                need_login = True
             elif "Need to Login" in msg:
-                rail = login(debug=debug)
-                if not rail.is_login and not _handle_error(ex):
-                    return
+                need_login = True
             elif not any(
                 err in msg
                 for err in ("Sold out", "잔여석없음", "예약대기자한도수초과")
             ):
-                if not _handle_error(ex):
-                    return
+                _wait_and_resume(_error_message(ex))
+                need_login = True
             _sleep()
 
         except JSONDecodeError as ex:
@@ -679,19 +688,17 @@ def reserve(debug=False):
                     f"\nException: {ex}\nType: {type(ex)}\nArgs: {ex.args}\nMessage: {ex.msg}"
                 )
             _sleep()
-            rail = login(debug=debug)
+            need_login = True
 
-        except ConnectionError as ex:
-            if not _handle_error(ex, "연결이 끊겼습니다"):
-                return
-            rail = login(debug=debug)
+        except ConnectionError:
+            _wait_and_resume("연결이 끊겼습니다")
+            need_login = True
 
         except Exception as ex:
             if debug:
                 print("\nUndefined exception")
-            if not _handle_error(ex):
-                return
-            rail = login(debug=debug)
+            _wait_and_resume(_error_message(ex))
+            need_login = True
 
 
 def _sleep():
@@ -701,15 +708,28 @@ def _sleep():
     )
 
 
-def _handle_error(ex, msg=None):
-    msg = (
-        msg
-        or f"\nException: {ex}, Type: {type(ex)}, Message: {ex.msg if hasattr(ex, 'msg') else 'No message attribute'}"
-    )
-    print(msg)
-    tgprintf = get_telegram()
-    asyncio.run(tgprintf(msg))
-    return inquirer.confirm(message="계속할까요", default=True)
+def _error_message(ex):
+    return f"Exception: {ex}, Type: {type(ex)}, Message: {getattr(ex, 'msg', 'No message attribute')}"
+
+
+def _notify(msg):
+    try:
+        asyncio.run(get_telegram()(msg))
+    except Exception as ex:
+        print(f"\n텔레그램 전송 실패: {ex}")
+
+
+def _wait_and_resume(msg):
+    msg = f"{msg}\n{RESUME_DELAY // 60}분 후 자동으로 예매를 재개합니다"
+    print(f"\n{msg}")
+    _notify(msg)
+
+    resume_at = time.time() + RESUME_DELAY
+    while (remaining := int(resume_at - time.time())) > 0:
+        minutes, seconds = divmod(remaining, 60)
+        print(f"\r재개 대기 중... {minutes:02d}:{seconds:02d} (Ctrl-C: 중단) ", end="", flush=True)
+        time.sleep(1)
+    print()
 
 
 def _is_seat_available(train, seat_type):
