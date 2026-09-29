@@ -1,39 +1,33 @@
 import click
 from termcolor import colored
 
-from .account import set_login
-from .card import set_card
+from .config import load_env
 from .reservations import check_reservation
 from .reserve import reserve
 from .settings import edit_station, set_options, set_station
-from .slack import set_slack
 from .ui import list_input, list_message
 
 
 @click.command()
 @click.option("--debug", is_flag=True, help="Debug mode")
 def srtgo(debug=False):
+    load_env()
+
     MENU_CHOICES = [
         ("예매 시작", 1),
         ("예매 확인/결제/취소", 2),
-        ("로그인 설정", 3),
-        ("슬랙 설정", 4),
-        ("카드 설정", 5),
-        ("역 설정", 6),
-        ("역 직접 수정", 7),
-        ("예매 옵션 설정", 8),
+        ("역 설정", 3),
+        ("역 직접 수정", 4),
+        ("예매 옵션 설정", 5),
         ("나가기", -1),
     ]
 
     ACTIONS = {
         1: lambda: reserve(debug),
         2: lambda: check_reservation(debug),
-        3: lambda: set_login(debug),
-        4: set_slack,
-        5: set_card,
-        6: set_station,
-        7: edit_station,
-        8: set_options,
+        3: set_station,
+        4: edit_station,
+        5: set_options,
     }
 
     while True:

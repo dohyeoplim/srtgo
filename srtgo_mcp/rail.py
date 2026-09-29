@@ -1,4 +1,3 @@
-import os
 import threading
 import time
 import uuid
@@ -9,7 +8,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import TypedDict
 
-from srtgo.card import CARD_KEYS, pay_card
+from srtgo.card import pay_card
+from srtgo.config import device_id, env
 from srtgo.ktx import (
     AdultPassenger,
     Korail,
@@ -20,10 +20,9 @@ from srtgo.ktx import (
     Reservation,
     ReserveOption,
     TrainType,
-    generate_device_id,
 )
 from srtgo.reserve import PASSENGER_TYPES, RESUME_DELAY, SKIPPABLE_ERRORS, _interval, _is_seat_available
-from srtgo.slack import send_slack
+from srtgo.slack import notify
 
 
 # Each watch holds its own Korail session, and parallel polling raises the chance of macro detection.
@@ -147,29 +146,12 @@ class Watch:
         }
 
 
-DEVICE_ID = os.environ.get("KORAIL_DEVICE_ID") or generate_device_id()
-
-
-def _card() -> dict:
-    return {key: os.environ.get(f"CARD_{key.upper()}") for key in CARD_KEYS}
-
-
-def notify(msg: str) -> None:
-    if not (webhook_url := os.environ.get("SLACK_WEBHOOK_URL")):
-        return
-    try:
-        send_slack(msg, webhook_url)
-    except Exception as ex:
-        print(f"Slack notification failed: {ex}")
-
-
 def _login() -> Korail:
-    user_id = os.environ.get("KORAIL_ID")
-    password = os.environ.get("KORAIL_PASSWORD")
+    user_id, password = env("KORAIL_LOGIN_ID"), env("KORAIL_PASSWORD")
     if not (user_id and password):
-        raise ToolError("KORAIL_ID and KORAIL_PASSWORD are not set")
+        raise ToolError("KORAIL_LOGIN_ID and KORAIL_PASSWORD are not set")
 
-    rail = Korail(user_id, password, device_id=DEVICE_ID)
+    rail = Korail(user_id, password, device_id=device_id())
     if not rail.is_login:
         raise ToolError("Korail login failed")
     return rail
@@ -231,7 +213,7 @@ def checkout(rail: Korail, reservation: Reservation) -> ReservationInfo:
         return info
     # Payment must never raise, or a reserved seat would look like a failed attempt and get reserved again.
     try:
-        if pay_card(rail, reservation, _card()):
+        if pay_card(rail, reservation):
             info["paid"] = True
         else:
             info["payment_error"] = "CARD_* environment variables are not set"

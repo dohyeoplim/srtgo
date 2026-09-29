@@ -10,6 +10,7 @@ from pydantic import Field
 from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from srtgo.config import load_env
 from srtgo.ktx import Korail
 
 from .rail import (
@@ -176,18 +177,23 @@ class BearerAuth:
 
 
 @click.command()
-@click.option("--transport", type=click.Choice(["stdio", "http"]), default="stdio", envvar="SRTGO_MCP_TRANSPORT")
-@click.option("--host", default="127.0.0.1", envvar="SRTGO_MCP_HOST")
-@click.option("--port", type=int, default=8000, envvar="SRTGO_MCP_PORT")
-@click.option("--token", envvar="SRTGO_MCP_TOKEN", help="Bearer token required for HTTP")
-def main(transport: str, host: str, port: int, token: Optional[str]) -> None:
+@click.option("--transport", type=click.Choice(["stdio", "http"]), default="stdio", envvar="MCP_TRANSPORT")
+@click.option("--host", default="127.0.0.1", envvar="MCP_HOST")
+@click.option("--port", type=int, default=8000, envvar="MCP_PORT")
+@click.option("--token", envvar="MCP_AUTH_TOKEN", help="Bearer token required for HTTP")
+def serve(transport: str, host: str, port: int, token: Optional[str]) -> None:
     if transport == "stdio":
         mcp.run()
         return
 
     if not token:
-        raise click.UsageError("SRTGO_MCP_TOKEN is required for HTTP transport")
+        raise click.UsageError("MCP_AUTH_TOKEN is required for HTTP transport")
     uvicorn.run(BearerAuth(mcp.streamable_http_app(host=host), token), host=host, port=port)
+
+
+def main() -> None:
+    load_env()
+    serve()
 
 
 if __name__ == "__main__":

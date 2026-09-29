@@ -8,7 +8,8 @@ from .ui import confirm, list_input, list_message
 
 
 def check_reservation(debug=False):
-    rail = login(debug=debug)
+    if not (rail := login(debug=debug)):
+        return
 
     while True:
         reservations = rail.reservations()
