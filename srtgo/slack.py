@@ -4,12 +4,14 @@ import inquirer
 import keyring
 import requests
 
+from .ui import prompt
+
 
 SLACK_WEBHOOK_PREFIX = "https://hooks.slack.com/"
 
 
 def set_slack() -> bool:
-    slack_info = inquirer.prompt(
+    slack_info = prompt(
         [
             inquirer.Text(
                 "webhook_url",

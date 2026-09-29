@@ -1,10 +1,10 @@
 from termcolor import colored
 
-import inquirer
 
 from .account import login
 from .card import pay_card
 from .slack import notify
+from .ui import confirm, list_input
 
 
 def check_reservation(debug=False):
@@ -33,7 +33,7 @@ def check_reservation(debug=False):
             (str(reservation), i) for i, reservation in enumerate(all_reservations)
         ] + [("슬랙으로 예매 정보 전송", -2), ("돌아가기", -1)]
 
-        choice = inquirer.list_input(message="예약 취소 (Enter: 결정)", choices=choices)
+        choice = list_input(message="예약 취소 (Enter: 결정)", choices=choices)
 
         if choice in (None, -1):
             return
@@ -53,7 +53,7 @@ def check_reservation(debug=False):
             not all_reservations[choice].is_ticket
             and not all_reservations[choice].is_waiting
         ):
-            answer = inquirer.list_input(
+            answer = list_input(
                 message=f"결재 대기 승차권: {all_reservations[choice]}",
                 choices=[("결제하기", 1), ("취소하기", 2)],
             )
@@ -68,7 +68,7 @@ def check_reservation(debug=False):
                 rail.cancel(all_reservations[choice])
             return
 
-        if inquirer.confirm(
+        if confirm(
             message=colored("정말 취소하시겠습니까", "green", "on_red")
         ):
             try:

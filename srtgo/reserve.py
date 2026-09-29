@@ -27,6 +27,7 @@ from .ktx import (
 )
 from .settings import RAIL_TYPE, get_options, get_station
 from .slack import notify
+from .ui import prompt
 
 
 RESERVE_INTERVAL_SHAPE = 4
@@ -182,7 +183,7 @@ def _ask_trip(defaults, now, preferences):
         if key != "adult" and key in preferences
     ]
 
-    return inquirer.prompt(questions)
+    return prompt(questions)
 
 
 def _build_passengers(info):
@@ -215,7 +216,7 @@ def _train_label(train):
 
 
 def _ask_trains(trains):
-    choice = inquirer.prompt(
+    choice = prompt(
         [
             inquirer.Checkbox(
                 "trains",
@@ -229,7 +230,7 @@ def _ask_trains(trains):
 
 
 def _ask_seat_options():
-    return inquirer.prompt(
+    return prompt(
         [
             inquirer.List(
                 "type",

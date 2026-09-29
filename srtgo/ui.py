@@ -1,0 +1,85 @@
+from functools import cache
+
+import inquirer
+from inquirer.render.console import ConsoleRender
+
+
+ELLIPSIS = "..."
+HEADER_MARK_WIDTH = len("[?] ")
+VALUE_SEPARATOR = ": "
+
+
+def fit_end(term, text, width):
+    if term.length(text) <= width:
+        return text
+    return term.truncate(text, max(width - len(ELLIPSIS), 0)) + term.normal + ELLIPSIS
+
+
+def fit_start(term, text, width):
+    if term.length(text) <= width:
+        return text
+    while text and term.length(text) > width - len(ELLIPSIS):
+        text = text[1:]
+    return ELLIPSIS + text
+
+
+class FittedRender(ConsoleRender):
+    def render(self, question, answers=None):
+        try:
+            return super().render(question, answers)
+        finally:
+            self._position = 0
+
+    def _print_header(self, render):
+        term = self.terminal
+        theme = self._theme.Question
+        room = self.width - 1 - HEADER_MARK_WIDTH - len(VALUE_SEPARATOR)
+
+        header = render.get_header()
+        value = str(render.get_current_value())
+        move_left = term.move_left or ""
+        cursor_offset = value.count(move_left) if move_left else 0
+        plain_value = value.replace(move_left, "") if move_left else value
+
+        value_width = term.length(plain_value)
+        header_room = max(room - value_width, min(term.length(header), room // 2))
+        header = fit_end(term, header, header_room)
+        plain_value = fit_start(term, plain_value, room - term.length(header))
+        value = plain_value + move_left * min(cursor_offset, len(plain_value))
+
+        self.print_str(
+            "\n{t.move_up}{t.clear_eol}{tq.brackets_color}[{tq.mark_color}?{tq.brackets_color}]{t.normal} "
+            "{msg}{t.normal}" + VALUE_SEPARATOR + "{value}",
+            msg=header,
+            value=value,
+            lf=not render.title_inline,
+            tq=theme,
+        )
+
+    def _print_options(self, render):
+        term = self.terminal
+        for message, symbol, color in render.get_options():
+            room = self.width - 1 - term.length(f" {symbol} ")
+            self.print_line(
+                " {color}{s} {m}{t.normal}",
+                m=fit_end(term, str(message), room),
+                color=color,
+                s=symbol,
+            )
+
+
+@cache
+def _console():
+    return FittedRender()
+
+
+def prompt(questions):
+    return inquirer.prompt(questions, render=_console())
+
+
+def list_input(message, **kwargs):
+    return inquirer.list_input(message, render=_console(), **kwargs)
+
+
+def confirm(message, **kwargs):
+    return inquirer.confirm(message, render=_console(), **kwargs)

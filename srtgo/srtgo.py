@@ -1,5 +1,4 @@
 import click
-import inquirer
 
 from .account import set_login
 from .card import set_card
@@ -7,6 +6,7 @@ from .reservations import check_reservation
 from .reserve import reserve
 from .settings import edit_station, set_options, set_station
 from .slack import set_slack
+from .ui import list_input
 
 
 @click.command()
@@ -36,7 +36,7 @@ def srtgo(debug=False):
     }
 
     while True:
-        choice = inquirer.list_input(
+        choice = list_input(
             message="메뉴 선택 (↕:이동, Enter: 선택)", choices=MENU_CHOICES
         )
 

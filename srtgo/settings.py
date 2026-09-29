@@ -4,6 +4,8 @@ import inquirer
 import keyring
 import re
 
+from .ui import prompt
+
 
 RAIL_TYPE = "KTX"
 
@@ -61,7 +63,7 @@ def set_station() -> bool:
     stations, default_station_key = get_station()
 
     if not (
-        station_info := inquirer.prompt(
+        station_info := prompt(
             [
                 inquirer.Checkbox(
                     "stations",
@@ -87,7 +89,7 @@ def set_station() -> bool:
 
 def edit_station() -> bool:
     stations, default_station_key = get_station()
-    station_info = inquirer.prompt(
+    station_info = prompt(
         [
             inquirer.Text(
                 "stations",
@@ -130,7 +132,7 @@ def get_station() -> Tuple[List[str], List[str]]:
 
 def set_options():
     default_options = get_options()
-    choices = inquirer.prompt(
+    choices = prompt(
         [
             inquirer.Checkbox(
                 "options",

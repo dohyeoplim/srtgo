@@ -3,6 +3,7 @@ import keyring
 
 from .ktx import Korail, KorailError, generate_device_id
 from .settings import RAIL_TYPE
+from .ui import prompt
 
 
 def set_login(debug=False):
@@ -11,7 +12,7 @@ def set_login(debug=False):
         "pass": keyring.get_password(RAIL_TYPE, "pass") or "",
     }
 
-    login_info = inquirer.prompt(
+    login_info = prompt(
         [
             inquirer.Text(
                 "id",

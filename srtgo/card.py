@@ -1,6 +1,8 @@
 import inquirer
 import keyring
 
+from .ui import prompt
+
 
 def set_card() -> None:
     card_info = {
@@ -10,7 +12,7 @@ def set_card() -> None:
         "expire": keyring.get_password("card", "expire") or "",
     }
 
-    card_info = inquirer.prompt(
+    card_info = prompt(
         [
             inquirer.Password(
                 "number",
