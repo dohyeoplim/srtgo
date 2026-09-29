@@ -4,6 +4,9 @@ import keyring
 from .ui import prompt
 
 
+CARD_KEYS = ("number", "password", "birthday", "expire")
+
+
 def set_card() -> None:
     card_info = {
         "number": keyring.get_password("card", "number") or "",
@@ -42,16 +45,17 @@ def set_card() -> None:
         keyring.set_password("card", "ok", "1")
 
 
-def pay_card(rail, reservation) -> bool:
-    if keyring.get_password("card", "ok"):
-        birthday = keyring.get_password("card", "birthday")
-        return rail.pay_with_card(
-            reservation,
-            keyring.get_password("card", "number"),
-            keyring.get_password("card", "password"),
-            birthday,
-            keyring.get_password("card", "expire"),
-            0,
-            "J" if len(birthday) == 6 else "S",
-        )
-    return False
+def pay_card(rail, reservation, card=None) -> bool:
+    if card is None:
+        card = {key: keyring.get_password("card", key) for key in CARD_KEYS}
+    if not all(card.values()):
+        return False
+    return rail.pay_with_card(
+        reservation,
+        card["number"],
+        card["password"],
+        card["birthday"],
+        card["expire"],
+        0,
+        "J" if len(card["birthday"]) == 6 else "S",
+    )
