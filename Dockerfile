@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1 \
     SRTGO_SETTINGS_FILE=/data/settings.json \
     MCP_TRANSPORT=http \
     MCP_HOST=0.0.0.0 \
-    MCP_PORT=8000
+    MCP_PORT=8742
 
 WORKDIR /app
 COPY . .
@@ -15,5 +15,5 @@ RUN SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 pip install . \
     && chown srtgo /data
 
 USER srtgo
-EXPOSE 8000
+EXPOSE 8742
 CMD ["srtgo-mcp"]

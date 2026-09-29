@@ -179,7 +179,7 @@ class BearerAuth:
 @click.command()
 @click.option("--transport", type=click.Choice(["stdio", "http"]), default="stdio", envvar="MCP_TRANSPORT")
 @click.option("--host", default="127.0.0.1", envvar="MCP_HOST")
-@click.option("--port", type=int, default=8000, envvar="MCP_PORT")
+@click.option("--port", type=int, default=8742, envvar="MCP_PORT")
 @click.option("--token", envvar="MCP_AUTH_TOKEN", help="Bearer token required for HTTP")
 def serve(transport: str, host: str, port: int, token: Optional[str]) -> None:
     if transport == "stdio":
