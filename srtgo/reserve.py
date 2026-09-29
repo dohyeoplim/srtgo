@@ -356,11 +356,12 @@ def _reserve_loop(rail, params, selected, passengers, seat_options, debug):
             need_login = True
 
 
+def _interval():
+    return gammavariate(RESERVE_INTERVAL_SHAPE, RESERVE_INTERVAL_SCALE) + RESERVE_INTERVAL_MIN
+
+
 def _sleep():
-    time.sleep(
-        gammavariate(RESERVE_INTERVAL_SHAPE, RESERVE_INTERVAL_SCALE)
-        + RESERVE_INTERVAL_MIN
-    )
+    time.sleep(_interval())
 
 
 def _error_message(ex):
