@@ -20,6 +20,7 @@ dependencies = [
     "requests",
     "inquirer>=3.4",
     "keyring",
+    "mcp>=2.2",
     "PyCryptodome",
     "prompt_toolkit>=3",
     "termcolor"
@@ -27,8 +28,12 @@ dependencies = [
 dynamic = ["version"]
 [tool.setuptools_scm]
 
+[tool.setuptools.packages.find]
+include = ["srtgo", "srtgo_mcp"]
+
 [project.urls]
 Homepage = "https://github.com/lapis42/srtgo"
 
 [project.scripts]
 srtgo = "srtgo.srtgo:srtgo"
+srtgo-mcp = "srtgo_mcp.server:main"
