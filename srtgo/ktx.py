@@ -7,6 +7,8 @@ korail2.korail2
 """
 
 import base64
+import hashlib
+import math
 try:
     import curl_cffi
     HAS_CURL_CFFI = True
@@ -17,7 +19,7 @@ import itertools
 import json
 import random
 import re
-import string
+import struct
 import time
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -31,7 +33,9 @@ PHONE_NUMBER_REGEX = re.compile(r"(\d{3})-(\d{3,4})-(\d{4})")
 # Membership numbers are 10 digits, so only 11-digit mobile numbers are safe to hyphenate.
 BARE_PHONE_NUMBER_REGEX = re.compile(r"01\d{9}")
 
-USER_AGENT = "Dalvik/2.1.0 (Linux; U; Android 13; SM-S928N Build/UP1A.231005.007)"
+ANDROID_RELEASE = "15"
+DEVICE_MODEL = "SM-S911N"
+USER_AGENT = f"Dalvik/2.1.0 (Linux; U; Android {ANDROID_RELEASE}; {DEVICE_MODEL} Build/AP3A.240905.015)"
 
 DEFAULT_HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -78,116 +82,67 @@ def generate_device_id():
     return "".join(random.choices("0123456789abcdef", k=16))
 
 
-class DynaPathMasterEngine:
-    APP_ID = "com.korail.talk"
-    AS_VALUE = "%5B38ff229cb34c7dda8e28220a2d750cce%5D"
-    DEVICE_MODEL = "SM-S928N"
-    OS_TYPE = "Android"
-    SDK_VERSION = "v1"
+class DynaPathEngine:
+    """DynaPath SDK 2.0.1 declaration token (``x-dynapath-m-token``).
 
-    def __init__(self):
-        self.TABLE = "3FE9jgRD4KdCyuawklqGJYmvfMn15P7US8XbxeLQtWT6OicBAopINs2Vh0HZrz"
-        self.I8, self.I9, self.I10 = 161, 30, 2
-        self.app_start_ts = str(int(time.time() * 1000))
+    Since 2026-10-21 the server rejects the old v1 (``bEeEP…``) token with -8204.
+    The v2 token is a device-facts envelope XOR-ed with a SHA-256 counter
+    keystream, tagged with a 3-byte MAC and base62-encoded with a custom alphabet.
+    """
 
-    def string2xA1s(self, data_str):
-        result = []
-        i = 0
-        while i < len(data_str):
-            cp = ord(data_str[i])
-            i += 1
-            if cp < 128:
-                result.append(cp)
-            elif cp < 2048:
-                result.append(128 | ((cp >> 7) & 15))
-                result.append(cp & 127)
-            elif cp >= 262144:
-                result.append(160)
-                result.append((cp >> 14) & 127)
-                result.append((cp >> 7) & 127)
-                result.append(cp & 127)
-            elif (63488 & cp) != 55296:
-                result.append(((cp >> 14) & 15) | 144)
-                result.append((cp >> 7) & 127)
-                result.append(cp & 127)
-        return result
+    PREFIX = "201"
+    SDK_VERSION = "2.0.1"
+    APP_ID = "korailplus"
+    SECRET = b"9a330fd663b62c5f888a7ce76ac7202d93f646b4e0bd605cd4183278ca4ca888"
+    ALPHABET = "TeFOuQBxj1qRUHwKkymSY8l3psvCzAL5tofNcihg9WDG072EZ4bVad6rJnPXIM"
+    OP_ID = 288904575606514493
+    KL = "990094375841594426"
+    EC = "978212327729758430"
+    OS_RELEASE = ANDROID_RELEASE
+    SDK_INT = 35
+    DEVICE_MODEL = DEVICE_MODEL
+    MANUFACTURER = "samsung"
+    BOARD = "kalama"
+    STRONGBOX = 1
 
-    def make_key(self, key_str):
-        big_int_add = 0
-        for char in key_str:
-            cp = ord(char)
-            i9_bit = 32768
-            for _ in range(16):
-                if (i9_bit & cp) != 0:
-                    break
-                i9_bit >>= 1
-            big_int_add = (big_int_add * (i9_bit << 1)) + cp
-        return big_int_add
-
-    def _internal_i(self, base_table, remainder, encode_size, current_sb):
-        j8_count = 0
-        for k in range(len(base_table)):
-            char = base_table[k]
-            if char not in current_sb:
-                if j8_count == remainder:
-                    return char
-                j8_count += 1
-        return " "
-
-    def make_encode_table(self, num, encode_size, base_table):
-        sb = ""
-        temp_num = num
-        for i in range(encode_size):
-            j8_divisor = encode_size - i
-            remainder = temp_num % j8_divisor
-            char = self._internal_i(base_table, remainder, len(base_table), sb)
-            sb += char
-            temp_num //= j8_divisor
-        return sb
-
-    def encode_normal_be(self, data_str, table, i8=161, i9=30, i10=2):
-        list_data = self.string2xA1s(data_str)
-        sb, i_arr = [], [0] * (i10 + 1)
-        idx, size = 0, len(list_data) % i10
-        size2 = len(list_data) - size
-        while idx < size2:
-            val = 0
-            for _ in range(i10):
-                val = (val * i8) + list_data[idx]
-                idx += 1
-            for i in range(i10 + 1):
-                i_arr[i] = val % i9
-                val //= i9
-            for i in range(i10, -1, -1):
-                sb.append(table[i_arr[i]])
-        if size > 0:
-            val = 0
-            for _ in range(size):
-                val = (val * i8) + list_data[idx]
-                idx += 1
-            for i in range(size + 1):
-                i_arr[i] = val % i9
-                val //= i9
-            while size >= 0:
-                sb.append(table[i_arr[size]])
-                size -= 1
-        return "".join(sb)
-
-    def generate_token(self, device_id, ts, rand):
-        plaintext = (
-            f"ai={self.APP_ID}&di={device_id}&as={self.AS_VALUE}&"
-            f"su=false&dbg=false&emu=false&hk=false&it={self.app_start_ts}&"
-            f"ts={ts}&rt=0&os=13&dm={self.DEVICE_MODEL}&st={self.OS_TYPE}&sv={self.SDK_VERSION}"
+    def __init__(self, device_id):
+        b64 = lambda s: base64.urlsafe_b64encode(s.encode()).decode().rstrip("=")
+        self._envelope = (
+            f"&st=Android&sv={self.SDK_VERSION}&ai={self.APP_ID}"
+            f"&os={b64(self.OS_RELEASE)}&dm={b64(self.DEVICE_MODEL)}&iid={b64(device_id)}"
+            f"&mf={b64(self.MANUFACTURER)}&bd={b64(self.BOARD)}"
+            f"&sl={self.SDK_INT}&sb={self.STRONGBOX}&kl={self.KL}&ec={self.EC}"
         )
 
-        dyn_key = f"v1+{rand}+{ts}"
-        key_enc = self.encode_normal_be(dyn_key, self.TABLE, self.I8, self.I9, self.I10)
-        big_key = self.make_key(dyn_key)
-        custom_table = self.make_encode_table(big_key, self.I9, self.TABLE)
-        body_enc = self.encode_normal_be(
-            plaintext, custom_table, self.I8, self.I9, self.I10
+    def _keystream(self, size, nonce_le):
+        blocks = (size + 31) // 32
+        return b"".join(
+            hashlib.sha256(self.SECRET + nonce_le + struct.pack(">I", i)).digest()
+            for i in range(blocks)
+        )[:size]
+
+    def _base62(self, buffer):
+        out = []
+        for i in range(0, len(buffer), 4):
+            word = buffer[i : i + 4]
+            value = int.from_bytes(word, "big")
+            width = math.ceil(len(word) * 8 / math.log2(62))
+            digits = []
+            for _ in range(width):
+                value, r = divmod(value, 62)
+                digits.append(self.ALPHABET[r])
+            out.append("".join(reversed(digits)))
+        return "".join(out)
+
+    def generate_token(self, ts, nonce=None):
+        nonce = random.getrandbits(32) if nonce is None else nonce
+        plaintext = f"!v=2&es={self.OP_ID}&ts={ts}{self._envelope}".encode("latin1")
+        nonce_le = struct.pack("<I", nonce)
+        eor = bytes(
+            p ^ k for p, k in zip(plaintext, self._keystream(len(plaintext), nonce_le))
         )
-        return f"bEeEP{self.TABLE[len(key_enc)]}{key_enc}{body_enc}"
+        mac = hashlib.sha256(self.SECRET + nonce_le + eor).digest()[:3]
+        return self.PREFIX + self._base62(nonce_le + mac + eor)
 
 
 # Schedule classes
@@ -658,12 +613,13 @@ class Korail:
             self._session = requests.session()
         self._session.headers.update(DEFAULT_HEADERS)
         self._device = "AD"
-        self._version = "250601002"
+        self._version = "261028001"
+        self._app_version = "7.1.0"
         self._key = "korail1234567890"
         self._sid_key = b"2485dd54d9deaa36"
         self._device_id = device_id or generate_device_id()
         self._idx = None
-        self._engine = DynaPathMasterEngine()
+        self._engine = DynaPathEngine(self._device_id)
         self.korail_id = korail_id
         self.korail_pw = korail_pw
         self.verbose = verbose
@@ -687,11 +643,7 @@ class Korail:
         sid = None
         if any(path in url for path in DYNAPATH_PATHS):
             ts = int(time.time() * 1000)
-            rand = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=4)
-            )
-            token = self._engine.generate_token(self._device_id, ts, rand)
-            headers["x-dynapath-m-token"] = token
+            headers["x-dynapath-m-token"] = self._engine.generate_token(ts)
             sid = self._generate_sid(ts)
         return headers, sid
 
@@ -738,6 +690,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
             "txtMemberNo": self.korail_id,
             "txtPwd": self.__enc_password(self.korail_pw),
@@ -771,9 +724,6 @@ class Korail:
         self.is_login = False
 
     def clear(self):
-        # Macro detection keys on the DynaPath token's app-start timestamp, so a
-        # blocked session only recovers once the engine is re-seeded.
-        self._engine = DynaPathMasterEngine()
         self._session.cookies.clear()
         self.is_login = False
 
@@ -826,6 +776,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Sid": "",
             "txtMenuId": "11",
             "radJobId": "1",
@@ -898,6 +849,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
             "txtMenuId": "11",
             "txtJobId": "1101" if reserving_seat else "1102",
@@ -954,6 +906,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
             "txtDeviceId": "",
             "txtIndex": "1",
@@ -974,6 +927,7 @@ class Korail:
                     data = {
                         "Device": self._device,
                         "Version": self._version,
+                        "AppVersion": self._app_version,
                         "Key": self._key,
                         "h_orgtk_wct_no": ticket.sale_info1,
                         "h_orgtk_ret_sale_dt": ticket.sale_info2,
@@ -999,6 +953,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
         }
         r = self._session.get(API_ENDPOINTS["myreservationview"], params=data)
@@ -1030,6 +985,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
             "hidPnrNo": rsv_id,
         }
@@ -1064,6 +1020,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
             "hidPnrNo": rsv.rsv_id,
             "hidWctNo": rsv.wct_no,
@@ -1097,6 +1054,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
             "txtPnrNo": rsv.rsv_id,
             "txtJrnySqno": rsv.journey_no,
@@ -1112,6 +1070,7 @@ class Korail:
         data = {
             "Device": self._device,
             "Version": self._version,
+            "AppVersion": self._app_version,
             "Key": self._key,
             "txtPrnNo": ticket.pnr_no,
             "h_orgtk_sale_dt": ticket.sale_info2,
